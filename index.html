@@ -14,10 +14,17 @@
       text-align: center;
       padding: 20px;
       background: #f5f5f5;
+      margin: 0;
     }
 
     h1 {
-      margin-bottom: 10px;
+      margin-bottom: 5px;
+      color: #222;
+    }
+
+    .subtitulo {
+      color: #666;
+      margin-top: 5px;
     }
 
     #reader {
@@ -25,14 +32,18 @@
       max-width: 500px;
       margin: 20px auto;
       background: white;
+      border-radius: 12px;
+      overflow: hidden;
     }
 
     #resultado {
-      margin-top: 20px;
+      margin: 20px auto;
       padding: 20px;
+      max-width: 500px;
       background: white;
-      border-radius: 10px;
+      border-radius: 12px;
       font-size: 22px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
 
     .codigo {
@@ -42,16 +53,38 @@
     }
 
     .ok {
+      color: #16803c;
       font-size: 30px;
       font-weight: bold;
     }
 
+    .error {
+      color: #c62828;
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .aviso {
+      color: #d17b00;
+      font-size: 28px;
+      font-weight: bold;
+    }
+
     button {
-      padding: 12px 20px;
-      font-size: 18px;
-      border-radius: 8px;
+      display: none;
+      padding: 15px 25px;
+      font-size: 20px;
+      font-weight: bold;
+      border-radius: 10px;
       border: none;
-      margin-top: 15px;
+      background: #222;
+      color: white;
+      margin: 20px auto;
+      cursor: pointer;
+    }
+
+    button:active {
+      opacity: 0.7;
     }
   </style>
 </head>
@@ -60,7 +93,9 @@
 
   <h1>Scanner Velada</h1>
 
-  <p>Apunta la cámara al código de la entrada</p>
+  <p class="subtitulo">
+    Apunta la cámara al código de la entrada
+  </p>
 
   <div id="reader"></div>
 
@@ -68,16 +103,25 @@
     Esperando código...
   </div>
 
+  <button id="nuevo">
+    🔄 Escanear otra entrada
+  </button>
+
+
   <script>
 
     /*
     ========================================
-    DIRECCIÓN DEL APPS SCRIPT
+    APPS SCRIPT
     ========================================
     */
 
     const APP_SCRIPT_URL =
       'https://script.google.com/macros/s/AKfycbx3GhYrBAgnWreY-qEwEfE8N2DmvZfbOC2iB_uFUc3iewD3sfoBojRzFtT_r-CsD1IHzg/exec';
+
+
+    let scanner = null;
+    let escaneando = false;
 
 
     /*
@@ -92,11 +136,6 @@
         .trim()
         .toUpperCase();
 
-      // Código real:
-      // ETIVM260100
-      // ETIVM260101
-      // ETIVM260102
-
       if (codigo.startsWith('ETIVM26')) {
 
         return String(
@@ -104,10 +143,6 @@
         );
 
       }
-
-      // También permite:
-      // 100
-      // 0100
 
       const match = codigo.match(/(\d+)$/);
 
@@ -146,7 +181,8 @@
           (resultado.tipo || '') +
           '</div>' +
           '<br>' +
-          '<div>Forma de pago: <strong>' +
+          '<div>Forma de pago:</div>' +
+          '<div><strong>' +
           resultado.formaPago +
           '</strong></div>' +
           '<div style="font-size:16px;margin-top:10px;">' +
@@ -160,7 +196,7 @@
       if (resultado.estado === 'duplicado') {
 
         div.innerHTML =
-          '<div style="font-size:28px;font-weight:bold;">⚠ YA INGRESÓ</div>' +
+          '<div class="aviso">⚠ YA INGRESÓ</div>' +
           '<br>' +
           '<div><strong>' +
           resultado.nombre +
@@ -178,7 +214,7 @@
       if (resultado.estado === 'no_pagada') {
 
         div.innerHTML =
-          '<div style="font-size:28px;font-weight:bold;">✕ ACCESO RECHAZADO</div>' +
+          '<div class="error">✕ ACCESO RECHAZADO</div>' +
           '<br>' +
           '<div><strong>' +
           resultado.nombre +
@@ -193,7 +229,7 @@
       if (resultado.estado === 'no_encontrado') {
 
         div.innerHTML =
-          '<div style="font-size:28px;font-weight:bold;">✕ NO ENCONTRADO</div>' +
+          '<div class="error">✕ NO ENCONTRADO</div>' +
           '<br>' +
           '<div>Código:</div>' +
           '<div class="codigo">' +
@@ -205,7 +241,8 @@
 
 
       div.innerHTML =
-        '<strong>Error</strong><br><br>' +
+        '<div class="error">ERROR</div>' +
+        '<br>' +
         (resultado.mensaje || 'Error desconocido');
     }
 
@@ -214,9 +251,6 @@
     ========================================
     CONSULTAR APPS SCRIPT
     ========================================
-
-    Usamos JSONP para evitar problemas de
-    seguridad del navegador (CORS).
     */
 
     function consultarAcceso(codigo) {
@@ -237,6 +271,9 @@
         delete window[callbackName];
 
         script.remove();
+
+        document.getElementById('nuevo').style.display =
+          'block';
       };
 
 
@@ -252,11 +289,14 @@
       script.onerror = function() {
 
         document.getElementById('resultado').innerHTML =
-          '<strong>Error de conexión con el validador.</strong>';
+          '<div class="error">ERROR DE CONEXIÓN</div>';
 
         delete window[callbackName];
 
         script.remove();
+
+        document.getElementById('nuevo').style.display =
+          'block';
       };
 
 
@@ -272,6 +312,12 @@
 
     function codigoDetectado(codigoOriginal) {
 
+      if (!escaneando) {
+        return;
+      }
+
+      escaneando = false;
+
       const codigo =
         normalizarCodigo(codigoOriginal);
 
@@ -283,6 +329,8 @@
         '<div style="margin-top:10px;font-size:16px;">' +
         'Consultando validador...' +
         '</div>';
+
+      scanner.stop().catch(() => {});
 
       consultarAcceso(codigo);
     }
@@ -296,8 +344,16 @@
 
     function iniciarScanner() {
 
-      const scanner =
+      document.getElementById('nuevo').style.display =
+        'none';
+
+      document.getElementById('resultado').innerHTML =
+        'Esperando código...';
+
+      scanner =
         new Html5Qrcode("reader");
+
+      escaneando = true;
 
       scanner.start(
 
@@ -316,26 +372,54 @@
 
           codigoDetectado(decodedText);
 
-          scanner.stop().catch(() => {});
-
         },
 
         (errorMessage) => {
 
-          // Errores normales mientras busca
-          // un código: no hacemos nada.
+          // Ignoramos errores normales
+          // mientras busca el código.
 
         }
 
       ).catch((error) => {
 
+        escaneando = false;
+
         document.getElementById('resultado').innerHTML =
-          '<strong>No se pudo iniciar la cámara.</strong><br><br>' +
+          '<div class="error">' +
+          'NO SE PUDO INICIAR LA CÁMARA' +
+          '</div><br>' +
           error;
 
       });
     }
 
+
+    /*
+    ========================================
+    BOTÓN NUEVA ENTRADA
+    ========================================
+    */
+
+    document.getElementById('nuevo').onclick =
+      function() {
+
+        if (scanner) {
+
+          scanner.clear().catch(() => {});
+
+        }
+
+        iniciarScanner();
+
+      };
+
+
+    /*
+    ========================================
+    ARRANQUE
+    ========================================
+    */
 
     iniciarScanner();
 
