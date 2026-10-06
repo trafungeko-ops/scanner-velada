@@ -41,6 +41,11 @@
       margin-top: 10px;
     }
 
+    .ok {
+      font-size: 30px;
+      font-weight: bold;
+    }
+
     button {
       padding: 12px 20px;
       font-size: 18px;
@@ -65,64 +70,242 @@
 
   <script>
 
-function normalizarCodigo(codigo) {
+    /*
+    ========================================
+    DIRECCIÓN DEL APPS SCRIPT
+    ========================================
+    */
 
-  codigo = String(codigo || '')
-    .trim()
-    .toUpperCase();
-
-  // Formato real del código de barras:
-  // ETIVM260100
-  // ETIVM260101
-  // ETIVM260102
-  //
-  // Se elimina ETIVM26 y queda:
-  // 100
-  // 101
-  // 102
-
-  if (codigo.startsWith('ETIVM26')) {
-    return String(parseInt(codigo.substring(7), 10));
-  }
-
-  // También permite ingresar directamente:
-  // 100
-  // 0100
-
-  const match = codigo.match(/(\d+)$/);
-
-  if (match) {
-    return String(parseInt(match[1], 10));
-  }
-
-  return codigo;
-}
+    const APP_SCRIPT_URL =
+      'https://script.google.com/macros/s/AKfycbx3GhYrBAgnWreY-qEwEfE8N2DmvZfbOC2iB_uFUc3iewD3sfoBojRzFtT_r-CsD1IHzg/exec';
 
 
+    /*
+    ========================================
+    NORMALIZAR CÓDIGO
+    ========================================
+    */
 
-    function codigoDetectado(codigoOriginal) {
+    function normalizarCodigo(codigo) {
 
-      const codigo = normalizarCodigo(codigoOriginal);
+      codigo = String(codigo || '')
+        .trim()
+        .toUpperCase();
 
-      document.getElementById('resultado').innerHTML =
-        '<div>Código leído:</div>' +
-        '<div class="codigo">' + codigo + '</div>' +
-        '<div style="margin-top:10px;font-size:16px;">' +
-        'Original: ' + codigoOriginal +
-        '</div>';
+      // Código real:
+      // ETIVM260100
+      // ETIVM260101
+      // ETIVM260102
 
+      if (codigo.startsWith('ETIVM26')) {
+
+        return String(
+          parseInt(codigo.substring(7), 10)
+        );
+
+      }
+
+      // También permite:
+      // 100
+      // 0100
+
+      const match = codigo.match(/(\d+)$/);
+
+      if (match) {
+
+        return String(
+          parseInt(match[1], 10)
+        );
+
+      }
+
+      return codigo;
     }
 
 
+    /*
+    ========================================
+    MOSTRAR RESULTADO
+    ========================================
+    */
+
+    function mostrarResultado(resultado) {
+
+      const div =
+        document.getElementById('resultado');
+
+      if (resultado.estado === 'ok') {
+
+        div.innerHTML =
+          '<div class="ok">✓ ACCESO AUTORIZADO</div>' +
+          '<br>' +
+          '<div><strong>' +
+          resultado.nombre +
+          '</strong></div>' +
+          '<div>' +
+          (resultado.tipo || '') +
+          '</div>' +
+          '<br>' +
+          '<div>Forma de pago: <strong>' +
+          resultado.formaPago +
+          '</strong></div>' +
+          '<div style="font-size:16px;margin-top:10px;">' +
+          resultado.hora +
+          '</div>';
+
+        return;
+      }
+
+
+      if (resultado.estado === 'duplicado') {
+
+        div.innerHTML =
+          '<div style="font-size:28px;font-weight:bold;">⚠ YA INGRESÓ</div>' +
+          '<br>' +
+          '<div><strong>' +
+          resultado.nombre +
+          '</strong></div>' +
+          '<br>' +
+          '<div>Ingreso registrado:</div>' +
+          '<div>' +
+          resultado.hora +
+          '</div>';
+
+        return;
+      }
+
+
+      if (resultado.estado === 'no_pagada') {
+
+        div.innerHTML =
+          '<div style="font-size:28px;font-weight:bold;">✕ ACCESO RECHAZADO</div>' +
+          '<br>' +
+          '<div><strong>' +
+          resultado.nombre +
+          '</strong></div>' +
+          '<br>' +
+          '<div>Entrada no pagada</div>';
+
+        return;
+      }
+
+
+      if (resultado.estado === 'no_encontrado') {
+
+        div.innerHTML =
+          '<div style="font-size:28px;font-weight:bold;">✕ NO ENCONTRADO</div>' +
+          '<br>' +
+          '<div>Código:</div>' +
+          '<div class="codigo">' +
+          resultado.codigo +
+          '</div>';
+
+        return;
+      }
+
+
+      div.innerHTML =
+        '<strong>Error</strong><br><br>' +
+        (resultado.mensaje || 'Error desconocido');
+    }
+
+
+    /*
+    ========================================
+    CONSULTAR APPS SCRIPT
+    ========================================
+
+    Usamos JSONP para evitar problemas de
+    seguridad del navegador (CORS).
+    */
+
+    function consultarAcceso(codigo) {
+
+      document.getElementById('resultado').innerHTML =
+        '<strong>Consultando...</strong>';
+
+      const callbackName =
+        'respuestaScanner_' + Date.now();
+
+      const script =
+        document.createElement('script');
+
+      window[callbackName] = function(resultado) {
+
+        mostrarResultado(resultado);
+
+        delete window[callbackName];
+
+        script.remove();
+      };
+
+
+      script.src =
+        APP_SCRIPT_URL +
+        '?api=acceso' +
+        '&codigo=' +
+        encodeURIComponent(codigo) +
+        '&callback=' +
+        encodeURIComponent(callbackName);
+
+
+      script.onerror = function() {
+
+        document.getElementById('resultado').innerHTML =
+          '<strong>Error de conexión con el validador.</strong>';
+
+        delete window[callbackName];
+
+        script.remove();
+      };
+
+
+      document.body.appendChild(script);
+    }
+
+
+    /*
+    ========================================
+    CÓDIGO DETECTADO
+    ========================================
+    */
+
+    function codigoDetectado(codigoOriginal) {
+
+      const codigo =
+        normalizarCodigo(codigoOriginal);
+
+      document.getElementById('resultado').innerHTML =
+        '<div>Código leído:</div>' +
+        '<div class="codigo">' +
+        codigo +
+        '</div>' +
+        '<div style="margin-top:10px;font-size:16px;">' +
+        'Consultando validador...' +
+        '</div>';
+
+      consultarAcceso(codigo);
+    }
+
+
+    /*
+    ========================================
+    INICIAR SCANNER
+    ========================================
+    */
+
     function iniciarScanner() {
 
-      const scanner = new Html5Qrcode("reader");
+      const scanner =
+        new Html5Qrcode("reader");
 
       scanner.start(
+
         { facingMode: "environment" },
 
         {
           fps: 10,
+
           qrbox: {
             width: 280,
             height: 120
@@ -139,7 +322,8 @@ function normalizarCodigo(codigo) {
 
         (errorMessage) => {
 
-          // Ignoramos errores normales mientras busca el código
+          // Errores normales mientras busca
+          // un código: no hacemos nada.
 
         }
 
@@ -150,7 +334,6 @@ function normalizarCodigo(codigo) {
           error;
 
       });
-
     }
 
 
