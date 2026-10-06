@@ -330,9 +330,17 @@
         'Consultando validador...' +
         '</div>';
 
-      scanner.stop().catch(() => {});
+scanner.stop()
+  .then(() => {
 
-      consultarAcceso(codigo);
+    consultarAcceso(codigo);
+
+  })
+  .catch(() => {
+
+    consultarAcceso(codigo);
+
+  });
     }
 
 
@@ -401,18 +409,43 @@
     ========================================
     */
 
-    document.getElementById('nuevo').onclick =
-      function() {
+document.getElementById('nuevo').onclick =
+  async function() {
 
-        if (scanner) {
+    const boton =
+      document.getElementById('nuevo');
 
-          scanner.clear().catch(() => {});
+    boton.style.display = 'none';
 
-        }
+    document.getElementById('resultado').innerHTML =
+      'Iniciando cámara...';
 
-        iniciarScanner();
+    try {
 
-      };
+      if (scanner) {
+
+        await scanner.clear();
+
+        scanner = null;
+      }
+
+    } catch (error) {
+
+      console.log('Error limpiando scanner:', error);
+
+      scanner = null;
+    }
+
+    // Pequeña pausa para asegurar que
+    // la cámara anterior se haya liberado.
+
+    setTimeout(function() {
+
+      iniciarScanner();
+
+    }, 300);
+
+  };
 
 
     /*
