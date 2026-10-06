@@ -65,20 +65,39 @@
 
   <script>
 
-    function normalizarCodigo(codigo) {
+function normalizarCodigo(codigo) {
 
-      codigo = String(codigo || '')
-        .trim()
-        .toUpperCase();
+  codigo = String(codigo || '')
+    .trim()
+    .toUpperCase();
 
-      const match = codigo.match(/(\d+)$/);
+  // Formato real del código de barras:
+  // ETIVM260100
+  // ETIVM260101
+  // ETIVM260102
+  //
+  // Se elimina ETIVM26 y queda:
+  // 100
+  // 101
+  // 102
 
-      if (match) {
-        return String(parseInt(match[1], 10));
-      }
+  if (codigo.startsWith('ETIVM26')) {
+    return String(parseInt(codigo.substring(7), 10));
+  }
 
-      return codigo;
-    }
+  // También permite ingresar directamente:
+  // 100
+  // 0100
+
+  const match = codigo.match(/(\d+)$/);
+
+  if (match) {
+    return String(parseInt(match[1], 10));
+  }
+
+  return codigo;
+}
+
 
 
     function codigoDetectado(codigoOriginal) {
