@@ -2,461 +2,426 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <title>Scanner Velada</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Velada Musical - Validadores</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
-
   <style>
     body {
       font-family: Arial, sans-serif;
       text-align: center;
-      padding: 20px;
-      background: #f5f5f5;
+      padding: 16px;
       margin: 0;
-    }
-
-    h1 {
-      margin-bottom: 5px;
+      background: #f1f4f8;
       color: #222;
     }
-
-    .subtitulo {
-      color: #666;
-      margin-top: 5px;
-    }
-
+    h1 { margin-bottom: 6px; }
+    .subtitulo { color: #555; }
     #reader {
       width: 100%;
       max-width: 500px;
-      margin: 20px auto;
+      margin: 18px auto;
       background: white;
       border-radius: 12px;
       overflow: hidden;
     }
-
     #resultado {
-      margin: 20px auto;
-      padding: 20px;
+      box-sizing: border-box;
       max-width: 500px;
+      margin: 16px auto;
+      padding: 20px;
       background: white;
       border-radius: 12px;
-      font-size: 22px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 8px #00000012;
+      overflow-wrap: anywhere;
     }
-
-    .codigo {
-      font-size: 36px;
-      font-weight: bold;
-      margin-top: 10px;
+    .ok { color: #16803c; font-size: 26px; font-weight: bold; }
+    .error { color: #bd2525; font-size: 25px; font-weight: bold; }
+    .aviso { color: #a45b00; font-size: 25px; font-weight: bold; }
+    .codigo { font-size: 34px; font-weight: bold; margin: 8px; }
+    button, input {
+      box-sizing: border-box;
+      font-size: 18px;
+      padding: 13px;
+      border-radius: 9px;
+      margin: 5px;
     }
-
-    .ok {
-      color: #16803c;
-      font-size: 30px;
-      font-weight: bold;
-    }
-
-    .error {
-      color: #c62828;
-      font-size: 28px;
-      font-weight: bold;
-    }
-
-    .aviso {
-      color: #d17b00;
-      font-size: 28px;
-      font-weight: bold;
-    }
-
     button {
-      display: none;
-      padding: 15px 25px;
-      font-size: 20px;
-      font-weight: bold;
-      border-radius: 10px;
-      border: none;
-      background: #222;
-      color: white;
-      margin: 20px auto;
+      border: 0;
       cursor: pointer;
+      background: #2457a7;
+      color: white;
     }
-
-    button:active {
-      opacity: 0.7;
+    button:disabled { opacity: .5; }
+    input {
+      width: 150px;
+      border: 1px solid #aaa;
+      background: white;
     }
+    .cantidad {
+      min-width: 48px;
+      font-size: 22px;
+      background: #e4eaf3;
+      color: #234;
+    }
+    .cantidad.seleccionada {
+      background: #2457a7;
+      color: white;
+      outline: 3px solid #b8cffa;
+    }
+    .confirmar { background: #16803c; }
+    .siguiente { background: #263746; }
+    .pequeno { font-size: 15px; color: #555; }
   </style>
 </head>
-
 <body>
-
-  <h1>Scanner Velada</h1>
-
-  <p class="subtitulo">
-    Apunta la cámara al código de la entrada
-  </p>
+  <h1 id="titulo">Scanner Velada</h1>
+  <p id="subtitulo" class="subtitulo">Apunta la cámara al código de la entrada</p>
 
   <div id="reader"></div>
 
-  <div id="resultado">
-    Esperando código...
+  <div id="manual" style="display:none">
+    <p>También puedes ingresar el número de entrada:</p>
+    <input id="numero" type="text" inputmode="numeric"
+           placeholder="Ej.: 100" autocomplete="off">
+    <button id="consultarManual">Consultar número</button>
   </div>
 
-  <button id="nuevo">
-    🔄 Escanear otra entrada
-  </button>
-
-
-  <script>
-
-    /*
-    ========================================
-    APPS SCRIPT
-    ========================================
-    */
-
-    const APP_SCRIPT_URL =
-      'https://script.google.com/macros/s/AKfycbx3GhYrBAgnWreY-qEwEfE8N2DmvZfbOC2iB_uFUc3iewD3sfoBojRzFtT_r-CsD1IHzg/exec';
-
-
-    let scanner = null;
-    let escaneando = false;
-
-
-    /*
-    ========================================
-    NORMALIZAR CÓDIGO
-    ========================================
-    */
-
-    function normalizarCodigo(codigo) {
-
-      codigo = String(codigo || '')
-        .trim()
-        .toUpperCase();
-
-      if (codigo.startsWith('ETIVM26')) {
-
-        return String(
-          parseInt(codigo.substring(7), 10)
-        );
-
-      }
-
-      const match = codigo.match(/(\d+)$/);
-
-      if (match) {
-
-        return String(
-          parseInt(match[1], 10)
-        );
-
-      }
-
-      return codigo;
-    }
-
-
-    /*
-    ========================================
-    MOSTRAR RESULTADO
-    ========================================
-    */
-
-    function mostrarResultado(resultado) {
-
-      const div =
-        document.getElementById('resultado');
-
-      if (resultado.estado === 'ok') {
-
-        div.innerHTML =
-          '<div class="ok">✓ ACCESO AUTORIZADO</div>' +
-          '<br>' +
-          '<div><strong>' +
-          resultado.nombre +
-          '</strong></div>' +
-          '<div>' +
-          (resultado.tipo || '') +
-          '</div>' +
-          '<br>' +
-          '<div>Forma de pago:</div>' +
-          '<div><strong>' +
-          resultado.formaPago +
-          '</strong></div>' +
-          '<div style="font-size:16px;margin-top:10px;">' +
-          resultado.hora +
-          '</div>';
-
-        return;
-      }
-
-
-      if (resultado.estado === 'duplicado') {
-
-        div.innerHTML =
-          '<div class="aviso">⚠ YA INGRESÓ</div>' +
-          '<br>' +
-          '<div><strong>' +
-          resultado.nombre +
-          '</strong></div>' +
-          '<br>' +
-          '<div>Ingreso registrado:</div>' +
-          '<div>' +
-          resultado.hora +
-          '</div>';
-
-        return;
-      }
-
-
-      if (resultado.estado === 'no_pagada') {
-
-        div.innerHTML =
-          '<div class="error">✕ ACCESO RECHAZADO</div>' +
-          '<br>' +
-          '<div><strong>' +
-          resultado.nombre +
-          '</strong></div>' +
-          '<br>' +
-          '<div>Entrada no pagada</div>';
-
-        return;
-      }
-
-
-      if (resultado.estado === 'no_encontrado') {
-
-        div.innerHTML =
-          '<div class="error">✕ NO ENCONTRADO</div>' +
-          '<br>' +
-          '<div>Código:</div>' +
-          '<div class="codigo">' +
-          resultado.codigo +
-          '</div>';
-
-        return;
-      }
-
-
-      div.innerHTML =
-        '<div class="error">ERROR</div>' +
-        '<br>' +
-        (resultado.mensaje || 'Error desconocido');
-    }
-
-
-    /*
-    ========================================
-    CONSULTAR APPS SCRIPT
-    ========================================
-    */
-
-    function consultarAcceso(codigo) {
-
-      document.getElementById('resultado').innerHTML =
-        '<strong>Consultando...</strong>';
-
-      const callbackName =
-        'respuestaScanner_' + Date.now();
-
-      const script =
-        document.createElement('script');
-
-      window[callbackName] = function(resultado) {
-
-        mostrarResultado(resultado);
-
-        delete window[callbackName];
-
-        script.remove();
-
-        document.getElementById('nuevo').style.display =
-          'block';
-      };
-
-
-      script.src =
-        APP_SCRIPT_URL +
-        '?api=acceso' +
-        '&codigo=' +
-        encodeURIComponent(codigo) +
-        '&callback=' +
-        encodeURIComponent(callbackName);
-
-
-      script.onerror = function() {
-
-        document.getElementById('resultado').innerHTML =
-          '<div class="error">ERROR DE CONEXIÓN</div>';
-
-        delete window[callbackName];
-
-        script.remove();
-
-        document.getElementById('nuevo').style.display =
-          'block';
-      };
-
-
-      document.body.appendChild(script);
-    }
-
-
-    /*
-    ========================================
-    CÓDIGO DETECTADO
-    ========================================
-    */
-
-    function codigoDetectado(codigoOriginal) {
-
-      if (!escaneando) {
-        return;
-      }
-
-      escaneando = false;
-
-      const codigo =
-        normalizarCodigo(codigoOriginal);
-
-      document.getElementById('resultado').innerHTML =
-        '<div>Código leído:</div>' +
-        '<div class="codigo">' +
-        codigo +
-        '</div>' +
-        '<div style="margin-top:10px;font-size:16px;">' +
-        'Consultando validador...' +
-        '</div>';
-
-scanner.stop()
-  .then(() => {
-
-    consultarAcceso(codigo);
-
-  })
-  .catch(() => {
-
-    consultarAcceso(codigo);
-
-  });
-    }
-
-
-    /*
-    ========================================
-    INICIAR SCANNER
-    ========================================
-    */
-
-    function iniciarScanner() {
-
-      document.getElementById('nuevo').style.display =
-        'none';
-
-      document.getElementById('resultado').innerHTML =
-        'Esperando código...';
-
-      scanner =
-        new Html5Qrcode("reader");
-
-      escaneando = true;
-
-      scanner.start(
-
-        { facingMode: "environment" },
-
-        {
-          fps: 10,
-
-          qrbox: {
-            width: 280,
-            height: 120
-          }
-        },
-
-        (decodedText) => {
-
-          codigoDetectado(decodedText);
-
-        },
-
-        (errorMessage) => {
-
-          // Ignoramos errores normales
-          // mientras busca el código.
-
-        }
-
-      ).catch((error) => {
-
-        escaneando = false;
-
-        document.getElementById('resultado').innerHTML =
-          '<div class="error">' +
-          'NO SE PUDO INICIAR LA CÁMARA' +
-          '</div><br>' +
-          error;
-
-      });
-    }
-
-
-    /*
-    ========================================
-    BOTÓN NUEVA ENTRADA
-    ========================================
-    */
-
-document.getElementById('nuevo').onclick =
-  async function() {
-
-    const boton =
-      document.getElementById('nuevo');
-
-    boton.style.display = 'none';
-
-    document.getElementById('resultado').innerHTML =
-      'Iniciando cámara...';
-
-    try {
-
-      if (scanner) {
-
-        await scanner.clear();
-
-        scanner = null;
-      }
-
-    } catch (error) {
-
-      console.log('Error limpiando scanner:', error);
-
-      scanner = null;
-    }
-
-    // Pequeña pausa para asegurar que
-    // la cámara anterior se haya liberado.
-
-    setTimeout(function() {
-
-      iniciarScanner();
-
-    }, 300);
-
+  <div id="resultado">Preparando scanner...</div>
+  <div id="acciones"></div>
+
+<script>
+const APP_SCRIPT_URL =
+  'https://script.google.com/macros/s/AKfycbx3GhYrBAgnWreY-qEwEfE8N2DmvZfbOC2iB_uFUc3iewD3sfoBojRzFtT_r-CsD1IHzg/exec';
+
+const modoDeseos =
+  new URLSearchParams(window.location.search).get('modo') === 'deseos';
+
+let scanner = null;
+let camaraActiva = false;
+let procesando = false;
+let codigoActual = '';
+let cantidadSeleccionada = 1;
+let operacionEnCurso = false;
+
+const resultado = document.getElementById('resultado');
+const acciones = document.getElementById('acciones');
+
+if (modoDeseos) {
+  document.getElementById('titulo').textContent = 'Registro de Deseos';
+  document.getElementById('subtitulo').textContent =
+    'Escanea el QR o ingresa el número de entrada';
+  document.getElementById('manual').style.display = 'block';
+} else {
+  document.getElementById('titulo').textContent = 'Control de Acceso';
+}
+
+function normalizarCodigo(valor) {
+  let codigo = String(valor || '').trim().toUpperCase();
+
+  if (codigo.startsWith('ETIVM26')) {
+    const resto = codigo.substring(7);
+    if (/^\d+$/.test(resto)) return String(parseInt(resto, 10));
+  }
+
+  if (/^\d+$/.test(codigo)) return String(parseInt(codigo, 10));
+
+  const match = codigo.match(/(\d+)$/);
+  return match ? String(parseInt(match[1], 10)) : codigo;
+}
+
+function llamarAPI(parametros, alRecibir) {
+  const callback = 'respuesta_' + Date.now() + '_' +
+    Math.floor(Math.random() * 1000000);
+  const script = document.createElement('script');
+  let terminado = false;
+
+  const limpiar = () => {
+    if (terminado) return;
+    terminado = true;
+    clearTimeout(limite);
+    delete window[callback];
+    script.remove();
   };
 
+  const limite = setTimeout(() => {
+    limpiar();
+    resultado.innerHTML =
+      '<div class="error">SIN RESPUESTA</div><p>Revisa la conexión e inténtalo nuevamente.</p>';
+    acciones.innerHTML =
+      '<button class="siguiente" onclick="nuevaEntrada()">Intentar nuevamente</button>';
+  }, 15000);
 
-    /*
-    ========================================
-    ARRANQUE
-    ========================================
-    */
+  window[callback] = data => {
+    limpiar();
+    alRecibir(data);
+  };
 
-    iniciarScanner();
+  const consulta = new URLSearchParams({
+    ...parametros,
+    callback
+  });
 
-  </script>
+  script.onerror = () => {
+    limpiar();
+    resultado.innerHTML =
+      '<div class="error">ERROR DE CONEXIÓN</div>';
+    acciones.innerHTML =
+      '<button class="siguiente" onclick="nuevaEntrada()">Intentar nuevamente</button>';
+  };
 
+  script.src = APP_SCRIPT_URL + '?' + consulta.toString();
+  document.body.appendChild(script);
+}
+
+function consultarCodigo(valor) {
+  if (operacionEnCurso) return;
+
+  const codigo = normalizarCodigo(valor);
+  if (!codigo) {
+    resultado.textContent = 'Ingresa un número de entrada válido.';
+    return;
+  }
+
+  if (!/^\d+$/.test(codigo)) {
+    resultado.textContent = 'No pude reconocer el número de entrada.';
+    return;
+  }
+
+  codigoActual = codigo;
+  acciones.innerHTML = '';
+  resultado.innerHTML =
+    '<div class="codigo">' + codigo + '</div><p>Consultando planilla...</p>';
+
+  if (modoDeseos) {
+    llamarAPI(
+      { api: 'deseos', accion: 'consultar', codigo },
+      mostrarFichaDeseos
+    );
+  } else {
+    llamarAPI(
+      { api: 'acceso', codigo },
+      mostrarAcceso
+    );
+  }
+}
+
+function mostrarAcceso(r) {
+  if (r.estado === 'ok') {
+    resultado.innerHTML =
+      '<div class="ok">✓ ACCESO AUTORIZADO</div>' +
+      '<p><strong>' + escapar(r.nombre) + '</strong></p>' +
+      '<p>' + escapar(r.tipo || '') + '</p>' +
+      '<p>Forma de pago: <strong>' + escapar(r.formaPago || '') + '</strong></p>' +
+      '<p class="pequeno">' + escapar(r.hora || '') + '</p>';
+  } else if (r.estado === 'duplicado') {
+    resultado.innerHTML =
+      '<div class="aviso">⚠ YA INGRESÓ</div><p><strong>' +
+      escapar(r.nombre) + '</strong></p><p>' + escapar(r.hora || '') + '</p>';
+  } else if (r.estado === 'no_pagada') {
+    resultado.innerHTML =
+      '<div class="error">✕ ACCESO RECHAZADO</div><p>' +
+      escapar(r.nombre) + '</p><p>Entrada no pagada</p>';
+  } else if (r.estado === 'no_encontrado') {
+    resultado.innerHTML =
+      '<div class="error">✕ NO ENCONTRADO</div><div class="codigo">' +
+      escapar(r.codigo) + '</div>';
+  } else {
+    resultado.innerHTML = '<div class="error">ERROR</div><p>' +
+      escapar(r.mensaje || 'Error desconocido') + '</p>';
+  }
+
+  acciones.innerHTML =
+    '<button class="siguiente" onclick="nuevaEntrada()">Escanear otra entrada</button>';
+}
+
+function mostrarFichaDeseos(r) {
+  if (r.estado === 'no_encontrado') {
+    resultado.innerHTML =
+      '<div class="error">✕ ENTRADA NO ENCONTRADA</div>' +
+      '<div class="codigo">' + escapar(r.codigo) + '</div>';
+    acciones.innerHTML =
+      '<button class="siguiente" onclick="nuevaEntrada()">Otra entrada</button>';
+    return;
+  }
+
+  if (r.estado !== 'encontrado') {
+    resultado.innerHTML = '<div class="error">ERROR</div><p>' +
+      escapar(r.mensaje || 'No se pudo consultar la entrada') + '</p>';
+    acciones.innerHTML =
+      '<button class="siguiente" onclick="nuevaEntrada()">Intentar nuevamente</button>';
+    return;
+  }
+
+  codigoActual = r.codigo;
+
+  if (r.deseo !== null && r.deseo !== '') {
+    resultado.innerHTML =
+      '<div class="aviso">⚠ DESEOS YA REGISTRADOS</div>' +
+      '<p><strong>' + escapar(r.nombre) + '</strong></p>' +
+      '<p>Curso: ' + escapar(r.curso || '—') + '</p>' +
+      '<div class="codigo">' + escapar(r.deseo) + '</div>' +
+      '<p>deseo(s) registrado(s)</p>' +
+      '<p class="pequeno">' + escapar(r.hora || '') + '</p>' +
+      '<p>No se modificó el registro existente.</p>';
+
+    acciones.innerHTML =
+      '<button class="siguiente" onclick="nuevaEntrada()">Siguiente entrada</button>';
+    return;
+  }
+
+  cantidadSeleccionada = 1;
+  resultado.innerHTML =
+    '<div class="ok">✓ ENTRADA ENCONTRADA</div>' +
+    '<p><strong>' + escapar(r.nombre) + '</strong></p>' +
+    '<p>Curso: ' + escapar(r.curso || '—') + '</p>' +
+    '<p>Número de entrada: <strong>' + escapar(r.codigo) + '</strong></p>' +
+    '<p>Selecciona la cantidad de deseos:</p>' +
+    '<div id="cantidades">' + [1,2,3,4,5].map(n =>
+      '<button class="cantidad ' + (n === 1 ? 'seleccionada' : '') +
+      '" onclick="seleccionarCantidad(' + n + ')">' + n + '</button>'
+    ).join('') + '</div>' +
+    '<p id="seleccion">Cantidad elegida: <strong>1</strong></p>' +
+    '<p class="pequeno">Verifica el nombre antes de confirmar.</p>';
+
+  acciones.innerHTML =
+    '<button class="confirmar" id="confirmar" onclick="confirmarDeseos()">Confirmar registro</button>' +
+    '<br><button class="siguiente" onclick="nuevaEntrada()">Cancelar / otra entrada</button>';
+}
+
+function seleccionarCantidad(n) {
+  if (operacionEnCurso || n < 1 || n > 5) return;
+
+  cantidadSeleccionada = n;
+  document.querySelectorAll('.cantidad').forEach(b => {
+    b.classList.toggle('seleccionada', Number(b.textContent) === n);
+  });
+
+  document.getElementById('seleccion').innerHTML =
+    'Cantidad elegida: <strong>' + n + '</strong>';
+}
+
+function confirmarDeseos() {
+  if (operacionEnCurso || !codigoActual) return;
+
+  operacionEnCurso = true;
+  acciones.innerHTML = '<p>Guardando deseos...</p>';
+
+  llamarAPI(
+    {
+      api: 'deseos',
+      accion: 'registrar',
+      codigo: codigoActual,
+      cantidad: String(cantidadSeleccionada)
+    },
+    r => {
+      operacionEnCurso = false;
+
+      if (r.estado === 'ok') {
+        resultado.innerHTML =
+          '<div class="ok">✓ DESEOS REGISTRADOS</div>' +
+          '<p><strong>' + escapar(r.nombre) + '</strong></p>' +
+          '<div class="codigo">' + escapar(r.deseo) + '</div>' +
+          '<p>deseo(s) registrados correctamente</p>' +
+          '<p class="pequeno">' + escapar(r.hora || '') + '</p>';
+        acciones.innerHTML =
+          '<button class="siguiente" onclick="nuevaEntrada()">Siguiente entrada</button>';
+      } else if (r.estado === 'duplicado') {
+        resultado.innerHTML =
+          '<div class="aviso">⚠ YA REGISTRADOS</div>' +
+          '<p><strong>' + escapar(r.nombre) + '</strong></p>' +
+          '<div class="codigo">' + escapar(r.deseo) + '</div>' +
+          '<p>El registro existente se conservó.</p>' +
+          '<p class="pequeno">' + escapar(r.hora || '') + '</p>';
+        acciones.innerHTML =
+          '<button class="siguiente" onclick="nuevaEntrada()">Siguiente entrada</button>';
+      } else {
+        resultado.innerHTML =
+          '<div class="error">NO SE PUDO REGISTRAR</div><p>' +
+          escapar(r.mensaje || r.estado) + '</p>';
+        acciones.innerHTML =
+          '<button class="siguiente" onclick="nuevaEntrada()">Volver a empezar</button>';
+      }
+    }
+  );
+}
+
+function escapar(valor) {
+  return String(valor == null ? '' : valor).replace(/[&<>"']/g, c => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  })[c]);
+}
+
+function consultarManual() {
+  consultarCodigo(document.getElementById('numero').value);
+}
+
+document.getElementById('consultarManual').onclick = consultarManual;
+document.getElementById('numero').addEventListener('keydown', e => {
+  if (e.key === 'Enter') consultarManual();
+});
+
+async function detenerScanner() {
+  camaraActiva = false;
+
+  if (scanner) {
+    try {
+      await scanner.stop();
+    } catch (e) {}
+
+    try {
+      await scanner.clear();
+    } catch (e) {}
+
+    scanner = null;
+  }
+}
+
+async function iniciarScanner() {
+  await detenerScanner();
+
+  procesando = false;
+  document.getElementById('reader').innerHTML = '';
+  resultado.textContent = 'Abriendo cámara...';
+  acciones.innerHTML = '';
+
+  scanner = new Html5Qrcode('reader');
+
+  try {
+    await scanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 280, height: 140 } },
+      async texto => {
+        if (procesando) return;
+        procesando = true;
+
+        await detenerScanner();
+        consultarCodigo(texto);
+      },
+      () => {}
+    );
+
+    camaraActiva = true;
+    resultado.textContent = modoDeseos
+      ? 'Apunta al QR o ingresa el número manualmente.'
+      : 'Apunta al código de barras de la entrada.';
+  } catch (e) {
+    camaraActiva = false;
+    resultado.innerHTML =
+      '<div class="error">NO SE PUDO ABRIR LA CÁMARA</div>' +
+      '<p>Comprueba el permiso de cámara en Safari.</p>' +
+      '<p class="pequeno">' + escapar(e) + '</p>' +
+      '<button class="siguiente" onclick="iniciarScanner()">Reintentar cámara</button>';
+  }
+}
+
+async function nuevaEntrada() {
+  operacionEnCurso = false;
+  codigoActual = '';
+  document.getElementById('numero').value = '';
+  await iniciarScanner();
+}
+
+iniciarScanner();
+</script>
 </body>
 </html>
